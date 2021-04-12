@@ -30,6 +30,7 @@ import com.rammelkast.polaris.entity.human.Player;
 import com.rammelkast.polaris.net.packet.Packet;
 import com.rammelkast.polaris.net.packet.login.out.PacketOutLoginDisconnect;
 import com.rammelkast.polaris.net.packet.login.out.PacketOutLoginSuccess;
+import com.rammelkast.polaris.net.packet.play.out.PacketOutPlayDisconnect;
 
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
@@ -37,12 +38,14 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.EventLoop;
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.chat.BaseComponent;
 import net.md_5.bungee.api.chat.ComponentBuilder;
 import net.md_5.bungee.chat.ComponentSerializer;
 
+@RequiredArgsConstructor
 public final class NetClient extends ChannelInboundHandlerAdapter {
 
 	private static final AtomicInteger KEEPALIVE_ID_SUPPLIER = new AtomicInteger();
@@ -149,7 +152,9 @@ public final class NetClient extends ChannelInboundHandlerAdapter {
 	
 	public void disconnect(final String message, final Exception exception) {
 		this.disconnect(new ComponentBuilder("Disconnected: " + message).color(ChatColor.RED).create());
-		LOGGER.error(exception);
+		if (exception != null) {
+			LOGGER.error(exception);
+		}
 	}
 	
 	public void disconnect(final BaseComponent... message) {
@@ -167,7 +172,14 @@ public final class NetClient extends ChannelInboundHandlerAdapter {
 			this.channel.flush();
 			break;
 		} case PLAY: {
-			this.channel.disconnect();
+			ChannelFuture future = this.channel.write(new PacketOutPlayDisconnect(ComponentSerializer.toString(message)));
+			future.addListener(new ChannelFutureListener() {
+				@Override
+				public void operationComplete(ChannelFuture future) {
+					NetClient.this.channel.close();
+				}
+			});
+			this.channel.flush();
 			break;
 		} default:
 			this.channel.disconnect();

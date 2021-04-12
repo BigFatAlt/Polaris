@@ -14,34 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.rammelkast.polaris.net.packet;
+package com.rammelkast.polaris.task;
 
-import lombok.Getter;
+/**
+ * An enumeration that representing all available statuses for a {@link Task}
+ */
+public enum TaskStatus {
 
-@Getter
-public class PacketHandshake extends Packet {
+    /**
+     * The task is execution and is currently running
+     */
+    SCHEDULED,
+    /**
+     * The task was cancelled with {@link Task#cancel()}
+     */
+    CANCELLED,
+    /**
+     * The task has been completed. This only applies to tasks without repetition
+     */
+    FINISHED,
 
-	private int protocolId;
-	private String hostname;
-	private short port; 
-	private int nextState;
-	
-	@Override
-	public byte getId() {
-		return 0x00;
-	}
-
-	@Override
-	public void read(final PacketWrapper wrapper) {
-		this.protocolId = wrapper.readVarInt();
-		this.hostname = wrapper.readString();
-		this.port = wrapper.getBuffer().readShort();
-		this.nextState = wrapper.readVarInt();
-	}
-
-	@Override
-	public void write(final PacketWrapper wrapper) {
-		throw new IllegalAccessError("Packet cannot be written");
-	}
-	
 }

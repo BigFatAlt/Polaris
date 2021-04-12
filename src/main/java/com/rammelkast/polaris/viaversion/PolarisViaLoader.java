@@ -14,33 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.rammelkast.polaris.net.packet.play.out;
+package com.rammelkast.polaris.viaversion;
 
-import com.rammelkast.polaris.net.packet.Packet;
-import com.rammelkast.polaris.net.packet.PacketWrapper;
+import us.myles.ViaVersion.api.platform.ViaPlatformLoader;
 
-import lombok.RequiredArgsConstructor;
+public final class PolarisViaLoader implements ViaPlatformLoader {
 
-@RequiredArgsConstructor
-public final class PacketOutPluginMessage extends Packet {
-
-	private final String channel;
-	private final byte[] data;
-	
 	@Override
-	public byte getId() {
-		return 0x3F;
+	public void load() {
+		
 	}
 
 	@Override
-	public void read(final PacketWrapper wrapper) {
-		throw new IllegalAccessError("Packet cannot be written");
-	}
-
-	@Override
-	public void write(final PacketWrapper wrapper) {
-		wrapper.writeString(this.channel);
-		wrapper.writeBytes(this.data);
+	public void unload() {
+		
 	}
 
 }

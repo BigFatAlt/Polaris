@@ -23,6 +23,9 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.rammelkast.polaris.net.NetServer;
+import com.rammelkast.polaris.profile.Profiler;
+import com.rammelkast.polaris.task.SchedulerManager;
+import com.rammelkast.polaris.viaversion.PolarisViaPlatform;
 import com.rammelkast.polaris.world.World;
 
 import lombok.Getter;
@@ -30,8 +33,8 @@ import lombok.Getter;
 public final class Polaris {
 
 	// TODO config
-	public static final int WORLD_SIZE    = 32;
-	public static final int VIEW_DISTANCE = 5;
+	public static final int WORLD_SIZE    = 16;
+	public static final int VIEW_DISTANCE = 6;
 	public static final int NETWORK_PORT  = 25565;
 	
 	private static final Logger LOGGER = LogManager.getLogger(Polaris.class);
@@ -40,7 +43,12 @@ public final class Polaris {
 	private static Polaris server;
 	
 	@Getter
+	private final Profiler profiler;
+	@Getter
 	private final World world;
+	@Getter
+	private final SchedulerManager schedulerManager;
+	private final PolarisViaPlatform viaPlatform;
 	private final NetServer netServer;
 	
 	private boolean running;
@@ -52,17 +60,26 @@ public final class Polaris {
 		
 		LOGGER.info("Loading Polaris b1");
 		
+		this.profiler = new Profiler();
+		
 		final long ramStart = Runtime.getRuntime().freeMemory();
 		this.world = new World("world", WORLD_SIZE);
 		final long ramEnd = Runtime.getRuntime().freeMemory();
 		LOGGER.info("World is using " + new BigDecimal(((float) (ramStart - ramEnd) / (1024 * 1024))).setScale(1, RoundingMode.HALF_UP) + " MB of memory");
 		
+		this.schedulerManager = new SchedulerManager();
+		this.viaPlatform = new PolarisViaPlatform();
+		{
+			LOGGER.info("Running ViaVersion " + this.viaPlatform.getPluginVersion());
+		}
 		this.netServer = new NetServer(NETWORK_PORT);
 		
 		Polaris.server = this;
 	}
 	
 	public void start() {
+		this.profiler.start();
+		this.viaPlatform.init();
 		this.netServer.start();
 		
 		this.running = true;
@@ -77,6 +94,7 @@ public final class Polaris {
 		this.running = false;
 		this.world.destroy();
 		this.netServer.shutdown();
+		this.profiler.stop();
 		System.gc();
 	}
 	

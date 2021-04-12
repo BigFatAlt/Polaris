@@ -22,25 +22,23 @@ import com.rammelkast.polaris.net.packet.PacketWrapper;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
-public final class PacketOutPluginMessage extends Packet {
+public final class PacketOutPlayDisconnect extends Packet {
 
-	private final String channel;
-	private final byte[] data;
+	private final String message;
 	
 	@Override
 	public byte getId() {
-		return 0x3F;
+		return 0x40;
 	}
 
 	@Override
 	public void read(final PacketWrapper wrapper) {
-		throw new IllegalAccessError("Packet cannot be written");
+		throw new IllegalAccessError("Packet cannot be read");
 	}
 
 	@Override
 	public void write(final PacketWrapper wrapper) {
-		wrapper.writeString(this.channel);
-		wrapper.writeBytes(this.data);
+		wrapper.writeString(this.message);
 	}
 
 }

@@ -18,6 +18,7 @@ package com.rammelkast.polaris.entity.human;
 
 import java.lang.ref.Reference;
 import java.lang.ref.WeakReference;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -32,9 +33,9 @@ import com.rammelkast.polaris.Polaris;
 import com.rammelkast.polaris.net.NetClient;
 import com.rammelkast.polaris.net.packet.Packet;
 import com.rammelkast.polaris.net.packet.play.in.PacketInEntityAction;
-import com.rammelkast.polaris.net.packet.play.out.PacketOutChunkBulk;
 import com.rammelkast.polaris.net.packet.play.out.PacketOutChunkData;
 import com.rammelkast.polaris.net.packet.play.out.PacketOutChunkData.ChunkDataMessage;
+import com.rammelkast.polaris.profile.Profiler;
 import com.rammelkast.polaris.net.packet.play.out.PacketOutJoinGame;
 import com.rammelkast.polaris.net.packet.play.out.PacketOutKeepAlive;
 import com.rammelkast.polaris.net.packet.play.out.PacketOutPlayerListHeaderFooter;
@@ -79,16 +80,19 @@ public class Player extends HumanEntity {
 		
 		world.getPlayers().add(this);
 
+		final Profiler profiler = Polaris.getServer().getProfiler();
 		final Packet[] packets = new Packet[] {
 			new PacketOutJoinGame(this.entityId, (byte) this.gameMode.getValue(), 0, (byte) 1, (byte) 60, "flat",
 					false),
-			new PacketOutPluginMessage("MC|Brand", "Polaris"), new PacketOutSpawnPosition(this.location),
+			new PacketOutPluginMessage("MC|Brand", "Polaris".getBytes(StandardCharsets.UTF_8)),
+			new PacketOutSpawnPosition(this.location),
 			new PacketOutPlayerListItem(0, world.getPlayers()),
 			new PacketOutPlayerListHeaderFooter(
-				ComponentSerializer
-						.toString(new ComponentBuilder("Powered by Polaris").color(ChatColor.GOLD).create()),
-				ComponentSerializer.toString(
-						new ComponentBuilder("Ping: " + this.client.getPing() + " ms").color(ChatColor.GRAY).create()))
+					ComponentSerializer
+							.toString(new ComponentBuilder("Powered by Polaris").color(ChatColor.GOLD).create()),
+					ComponentSerializer.toString(new ComponentBuilder("Ping: " + client.getPing() + " ms" + "\nMemory: "
+							+ profiler.getMemoryUsed().toString() + "/" + profiler.getTotalMemory().toString() + " MB")
+									.color(ChatColor.GRAY).create()))
 		};
 		client.sendPacket(packets);
 
@@ -146,7 +150,14 @@ public class Player extends HumanEntity {
 	
 	private void updateMovement() {
 		final Chunk currentChunk = this.chunk == null ? null : this.chunk.get();
-		final Chunk newChunk = this.getWorld().getChunk(this.location);
+		Chunk newChunk;
+		try {
+			newChunk = this.getWorld().getChunk(this.location);
+		} catch (ArrayIndexOutOfBoundsException exception) {
+			this.teleport(this.getWorld().getSpawnPoint());
+			return;
+		}
+		
 		if (newChunk != currentChunk) {
 			this.chunk = new WeakReference<Chunk>(newChunk);
 			this.updateChunks();
@@ -225,7 +236,8 @@ public class Player extends HumanEntity {
 		final List<Packet> packets = new ArrayList<Packet>();
 		final int loadCount = loadQueue.size();
 		if (loadCount > 0) {
-			final ChunkDataMessage[] newChunks = new ChunkDataMessage[loadCount];
+			// TODO either do chunk bulk 1.8.x only, or keep using individual chunk packets
+			/*final ChunkDataMessage[] newChunks = new ChunkDataMessage[loadCount];
 			{
 				Chunk chunk;
 				int index = 0;
@@ -233,7 +245,12 @@ public class Player extends HumanEntity {
 					newChunks[index++] = chunk.toMessage(true);
 				}
 			}
-			packets.add(new PacketOutChunkBulk(newChunks, true));
+			packets.add(new PacketOutChunkBulk(newChunks, true));*/
+			
+			Chunk chunk;
+			while ((chunk = loadQueue.poll()) != null) {
+				packets.add(new PacketOutChunkData(chunk.toMessage(true)));
+			}
 		}
 
 		final int unloadCount = unloadQueue.size();

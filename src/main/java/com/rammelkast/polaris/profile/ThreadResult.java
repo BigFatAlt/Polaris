@@ -14,33 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.rammelkast.polaris.net.packet.play.out;
+package com.rammelkast.polaris.profile;
 
-import com.rammelkast.polaris.net.packet.Packet;
-import com.rammelkast.polaris.net.packet.PacketWrapper;
-
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
-public final class PacketOutPluginMessage extends Packet {
+public final class ThreadResult {
 
-	private final String channel;
-	private final byte[] data;
-	
-	@Override
-	public byte getId() {
-		return 0x3F;
-	}
-
-	@Override
-	public void read(final PacketWrapper wrapper) {
-		throw new IllegalAccessError("Packet cannot be written");
-	}
-
-	@Override
-	public void write(final PacketWrapper wrapper) {
-		wrapper.writeString(this.channel);
-		wrapper.writeBytes(this.data);
-	}
-
+	@Getter
+    private final double cpuPercentage, userPercentage, blockedPercentage;
+		
 }

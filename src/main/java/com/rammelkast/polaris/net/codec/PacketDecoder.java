@@ -38,59 +38,51 @@ import lombok.RequiredArgsConstructor;
 public class PacketDecoder extends ByteToMessageDecoder {
 
 	private static final Logger LOGGER = LogManager.getLogger(PacketDecoder.class);
-	
+
 	private final NetClient client;
-	
+
 	@Override
 	protected void decode(final ChannelHandlerContext ctx, final ByteBuf in, final List<Object> out) throws Exception {
 		final PacketWrapper wrapper = new PacketWrapper(in, new WeakReference<>(this.client));
-		while (in.readableBytes() > 0) {
-			in.markReaderIndex();
-			final int readable = in.readableBytes();
-			final int packetLength = wrapper.readVarInt();
-			if (readable < packetLength) {
-				in.resetReaderIndex();
-				LOGGER.warn("Skipped " + readable + " bytes (expected " + packetLength + ")");
-				return;
-			}
-			
-			final int packetId = wrapper.readVarInt();
-			final NetState state = this.client.getState();
-			Packet packet = null;
-			try {
-				switch (state) {
-				case HANDSHAKE: {
-					packet = new PacketHandshake();
-					packet.read(wrapper);
-					final PacketHandshake handshake = (PacketHandshake) packet;
-					final int nextState = handshake.getNextState();
-					if (nextState < 1 || nextState > 3) {
-						ctx.disconnect();
-						LOGGER.info("Disconnected {}: illegal handshake", this.client.getAddress());
-						break;
-					}
-					this.client.setState(NetState.values()[nextState]);
+		final int packetId = wrapper.readVarInt();
+		final NetState state = this.client.getState();
+		Packet packet = null;
+		try {
+			switch (state) {
+			case HANDSHAKE: {
+				packet = new PacketHandshake();
+				packet.read(wrapper);
+				final PacketHandshake handshake = (PacketHandshake) packet;
+				final int nextState = handshake.getNextState();
+				if (nextState < 1 || nextState > 3) {
+					ctx.disconnect();
+					LOGGER.info("Disconnected {}: illegal handshake", this.client.getAddress());
 					break;
 				}
-				default: {
-					packet = PacketManager.fetchPacket(packetId, state);
-					if (packet == null) {
-						in.skipBytes(packetLength - this.getVarIntSize(packetId));
-						LOGGER.warn("Skipped " + readable + " bytes (unknown packet)");
-						throw new UnsupportedOperationException("Client sent unknown packet");
-					}
-					packet.read(wrapper);
-					break;
-				}
-				}
-				out.add(packet);
-			} catch (Exception e) {
-				throw new RuntimeException("Failed to decode packet:\nID: 0x" + Integer.toHexString(packetId) + "\nSize: " + packetLength + "\nReason: " + e.getMessage());
+				this.client.setState(NetState.values()[nextState]);
+				break;
 			}
-			in.discardSomeReadBytes();
+			default: {
+				packet = PacketManager.fetchPacket(packetId, state);
+				if (packet == null) {
+					in.skipBytes(in.readableBytes() - this.getVarIntSize(packetId));
+					LOGGER.warn("Skipped " + in.readableBytes() + " bytes (unknown packet)");
+					throw new UnsupportedOperationException("Client sent unknown packet");
+				}
+				packet.read(wrapper);
+				break;
+			}
+			}
+			out.add(packet);
+		} catch (Exception e) {
+			// Prevent rest of invalid packet from being read
+			in.skipBytes(in.readableBytes());
+			throw new RuntimeException("Failed to decode packet:\nID: 0x" + Integer.toHexString(packetId) + "\nSize: "
+					+ in.readableBytes() + "\nReason: " + e.getMessage());
 		}
+		in.discardSomeReadBytes();
 	}
-	
+
 	private int getVarIntSize(final int varInt) {
 		if ((varInt & 0xFFFFFF80) == 0) {
 			return 1;

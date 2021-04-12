@@ -16,10 +16,12 @@
  */
 package com.rammelkast.polaris.net.packet.play.in;
 
+import com.rammelkast.polaris.Polaris;
 import com.rammelkast.polaris.net.NetClient;
 import com.rammelkast.polaris.net.packet.Packet;
 import com.rammelkast.polaris.net.packet.PacketWrapper;
 import com.rammelkast.polaris.net.packet.play.out.PacketOutPlayerListHeaderFooter;
+import com.rammelkast.polaris.profile.Profiler;
 
 import lombok.Getter;
 import net.md_5.bungee.api.ChatColor;
@@ -51,11 +53,13 @@ public final class PacketInKeepAlive extends Packet {
 		if (client.getKeepAliveId() == this.keepAliveId) {
 			client.setPing(System.currentTimeMillis() - client.getLastKeepAlive());
 			// TODO remove - this is debug
+			final Profiler profiler = Polaris.getServer().getProfiler();
 			client.sendPacket(new PacketOutPlayerListHeaderFooter(
 					ComponentSerializer
 							.toString(new ComponentBuilder("Powered by Polaris").color(ChatColor.GOLD).create()),
-					ComponentSerializer.toString(
-							new ComponentBuilder("Ping: " + client.getPing() + " ms").color(ChatColor.GRAY).create())));
+					ComponentSerializer.toString(new ComponentBuilder("Ping: " + client.getPing() + " ms" + "\nMemory: "
+							+ profiler.getMemoryUsed().toString() + "/" + profiler.getTotalMemory().toString() + " MB")
+									.color(ChatColor.GRAY).create())));
 		} else {
 			client.disconnect("Invalid keepalive ID", null);
 		}
