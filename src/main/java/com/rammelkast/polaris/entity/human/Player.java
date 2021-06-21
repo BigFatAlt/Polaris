@@ -20,9 +20,12 @@ import java.lang.ref.Reference;
 import java.lang.ref.WeakReference;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
+import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.logging.log4j.Level;
@@ -30,19 +33,26 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.rammelkast.polaris.Polaris;
+import com.rammelkast.polaris.entity.EntityMetadata;
 import com.rammelkast.polaris.net.NetClient;
 import com.rammelkast.polaris.net.packet.Packet;
 import com.rammelkast.polaris.net.packet.play.in.PacketInEntityAction;
 import com.rammelkast.polaris.net.packet.play.out.PacketOutChunkData;
 import com.rammelkast.polaris.net.packet.play.out.PacketOutChunkData.ChunkDataMessage;
-import com.rammelkast.polaris.profile.Profiler;
+import com.rammelkast.polaris.net.packet.play.out.PacketOutDestroyEntities;
+import com.rammelkast.polaris.net.packet.play.out.PacketOutEntityCreate;
 import com.rammelkast.polaris.net.packet.play.out.PacketOutJoinGame;
 import com.rammelkast.polaris.net.packet.play.out.PacketOutKeepAlive;
+import com.rammelkast.polaris.net.packet.play.out.PacketOutLook;
+import com.rammelkast.polaris.net.packet.play.out.PacketOutLookRelativeMove;
 import com.rammelkast.polaris.net.packet.play.out.PacketOutPlayerListHeaderFooter;
 import com.rammelkast.polaris.net.packet.play.out.PacketOutPlayerListItem;
 import com.rammelkast.polaris.net.packet.play.out.PacketOutPlayerPositionLook;
 import com.rammelkast.polaris.net.packet.play.out.PacketOutPluginMessage;
+import com.rammelkast.polaris.net.packet.play.out.PacketOutRelativeMove;
+import com.rammelkast.polaris.net.packet.play.out.PacketOutSpawnPlayer;
 import com.rammelkast.polaris.net.packet.play.out.PacketOutSpawnPosition;
+import com.rammelkast.polaris.profile.Profiler;
 import com.rammelkast.polaris.util.Location;
 import com.rammelkast.polaris.util.MathUtilties;
 import com.rammelkast.polaris.world.Chunk;
@@ -62,9 +72,12 @@ public class Player extends HumanEntity {
 
 	@Getter
 	private final NetClient client;
+	@Getter
+	private final EntityMetadata metadata = new EntityMetadata();
 	private final List<Chunk> loadedChunks = new ArrayList<Chunk>();
 	private final ScheduledFuture<?> keepAliveTask;
-
+	private final List<Player> viewers = new CopyOnWriteArrayList<Player>();
+	
 	@Getter
 	private boolean onGround;
 	@Getter
@@ -77,6 +90,7 @@ public class Player extends HumanEntity {
 	public Player(final World world, final NetClient client) {
 		super(client.getUsername(), client.getUniqueId(), GameMode.SURVIVAL, world.getSpawnPoint(), 20.0D, 20.0D);
 		this.client = client;
+		this.metadata.setByte(10, 0xFF);
 		
 		world.getPlayers().add(this);
 
@@ -101,10 +115,13 @@ public class Player extends HumanEntity {
 		}, 5, 5, TimeUnit.SECONDS); // Send keep alive every 5 seconds
 
 		this.teleport(world.getSpawnPoint());
-		this.updateMovement();
+		this.updateMovement(world.getSpawnPoint(), false, false);
 		this.teleport(world.getSpawnPoint());
 		
-		this.getWorld().broadcast(new ComponentBuilder(this.name + " joined.").color(ChatColor.YELLOW).create());
+		// Add to other players' tablist
+		world.broadcastPacket(new PacketOutPlayerListItem(0, Set.copyOf(Collections.singletonList(this))));
+		
+		world.broadcastMessage(new ComponentBuilder(this.name + " joined.").color(ChatColor.YELLOW).create());
 	}
 
 	public void kick(final String message) {
@@ -113,42 +130,82 @@ public class Player extends HumanEntity {
 
 	public void destroy() {
 		this.keepAliveTask.cancel(false);
-		this.getWorld().getPlayers().remove(this);
-		this.getWorld().broadcast(new ComponentBuilder(this.name + " left.").color(ChatColor.YELLOW).create());
+		this.viewers.forEach(player -> {
+			removeViewer(player, true);
+			player.removeViewer(this, false);
+		});
+		getWorld().getPlayers().remove(this);
+        getWorld().broadcastPacket(new PacketOutPlayerListItem(4, Set.copyOf(Collections.singletonList(this))));
+		getWorld().broadcastMessage(new ComponentBuilder(this.name + " left.").color(ChatColor.YELLOW).create());
 	}
 
 	public void updatePosition(final boolean onGround) {
+		final Location lastLocation = this.location.clone();
 		this.onGround = onGround;
-		this.updateMovement();
+		this.updateMovement(lastLocation, false, false);
 	}
 
 	public void updatePosition(final float yaw, final float pitch, final boolean onGround) {
+		final Location lastLocation = this.location.clone();
 		this.location.setYaw(yaw);
 		this.location.setPitch(pitch);
 		this.onGround = onGround;
-		this.updateMovement();
+		this.updateMovement(lastLocation, false, true);
 	}
 
 	public void updatePosition(final double x, final double y, final double z, final boolean onGround) {
+		final Location lastLocation = this.location.clone();
 		this.location.setX(x);
 		this.location.setY(y);
 		this.location.setZ(z);
 		this.onGround = onGround;
-		this.updateMovement();
+		this.updateMovement(lastLocation, true, false);
 	}
 
 	public void updatePosition(final double x, final double y, final double z, final float yaw, final float pitch,
 			final boolean onGround) {
+		final Location lastLocation = this.location.clone();
 		this.location.setX(x);
 		this.location.setY(y);
 		this.location.setZ(z);
 		this.location.setYaw(yaw);
 		this.location.setPitch(pitch);
 		this.onGround = onGround;
-		this.updateMovement();
+		this.updateMovement(lastLocation, true, true);
 	}
 	
-	private void updateMovement() {
+	private void updateMovement(final Location lastLocation, final boolean position, final boolean look) {
+		final double distanceSq = this.location.distanceSquared(lastLocation);
+		if (distanceSq < 16) {
+			if (position && look) {
+				final double deltaX = this.location.getX() - lastLocation.getX();
+				final double deltaY = this.location.getY() - lastLocation.getY();
+				final double deltaZ = this.location.getZ() - lastLocation.getZ();
+				this.viewers.forEach(player -> {
+					player.getClient()
+							.sendPacket(new PacketOutLookRelativeMove(this.entityId, (byte) (deltaX * 32d),
+									(byte) (deltaY * 32d), (byte) (deltaZ * 32d), this.location.getYaw(),
+									this.location.getPitch(), this.onGround));
+				});
+			} else if (position) {
+				final double deltaX = this.location.getX() - lastLocation.getX();
+				final double deltaY = this.location.getY() - lastLocation.getY();
+				final double deltaZ = this.location.getZ() - lastLocation.getZ();
+				this.viewers.forEach(player -> {
+					player.getClient()
+							.sendPacket(new PacketOutRelativeMove(this.entityId, (byte) (deltaX * 32d),
+									(byte) (deltaY * 32d), (byte) (deltaZ * 32d), this.onGround));
+				});
+			} else if (look) {
+				this.viewers.forEach(player -> {
+					player.getClient()
+							.sendPacket(new PacketOutLook(this.entityId, this.location.getYaw(), this.location.getPitch(), this.onGround));
+				});
+			}
+		} else {
+			// TODO teleport packet
+		}
+		
 		final Chunk currentChunk = this.chunk == null ? null : this.chunk.get();
 		Chunk newChunk;
 		try {
@@ -208,9 +265,28 @@ public class Player extends HumanEntity {
 
 	public void handleChatMessage(final String message) {
 		LOGGER.log(Level.toLevel("CHAT"), "{}: {}", this.name, message);
-		this.getWorld().broadcast(new ComponentBuilder(this.name + ": " + message).color(ChatColor.GRAY).create());
+		this.getWorld().broadcastMessage(new ComponentBuilder(this.name + ": " + message).color(ChatColor.GRAY).create());
 	}
 
+	public void addViewer(final Player player, boolean send) {
+        if (player != this && !this.viewers.contains(player)) {
+            this.viewers.add(player);
+            if (send) {
+                player.getClient().sendPacket(new PacketOutSpawnPlayer(this));
+                player.getClient().sendPacket(new PacketOutEntityCreate(this.getEntityId()));
+            }
+        }
+    }
+
+    public void removeViewer(Player player, boolean send) {
+        if (this.viewers.contains(player)) {
+            this.viewers.remove(player);
+			if (send) {
+				player.getClient().sendPacket(new PacketOutDestroyEntities(new int[] { this.entityId }));
+			}
+        }
+    }
+	
 	private void updateChunks() {
 		final long startTime = System.nanoTime();
 		final int viewDistance = Math.min(this.clientSettings == null ? Polaris.VIEW_DISTANCE : this.clientSettings.viewDistance, Polaris.VIEW_DISTANCE);
@@ -218,14 +294,26 @@ public class Player extends HumanEntity {
 
 		final Queue<Chunk> loadQueue = new LinkedList<Chunk>();
 		final Queue<Chunk> unloadQueue = new LinkedList<Chunk>();
+		final List<Player> addQueue = new ArrayList<Player>();
+		final List<Player> removeQueue = new ArrayList<Player>();
 		for (Chunk[] tab : this.getWorld().getChunks()) {
 			for (Chunk chunk : tab) {
 				double distanceSquared = MathUtilties.distanceSquared((int) this.location.getX() / 16,
 						(int) this.location.getZ() / 16, chunk.getX(), chunk.getZ());
 				if (distanceSquared >= viewSquared && this.loadedChunks.contains(chunk)) {
 					unloadQueue.add(chunk);
+					getWorld().getPlayers().forEach(player -> {
+						if (player != this && player.chunk.get() == chunk) {
+                            removeQueue.add(player);
+                        }
+					});
 				} else if (distanceSquared < viewSquared && !this.loadedChunks.contains(chunk)) {
 					loadQueue.add(chunk);
+					getWorld().getPlayers().forEach(player -> {
+						if (player != this && player.chunk.get() == chunk) {
+                            addQueue.add(player);
+                        }
+					});
 				}
 			}
 		}
@@ -260,13 +348,32 @@ public class Player extends HumanEntity {
 				packets.add(new PacketOutChunkData(ChunkDataMessage.empty(chunk.getX(), chunk.getZ())));
 			}
 		}
+		
+		this.client.sendPacket(packets.toArray(Packet[]::new));
+		
+		addQueue.forEach(player -> {
+			addViewer(player, true);
+			player.addViewer(this, true);
+		});
+		
+		if (removeQueue.size() > 0) {
+			int[] entityIds = new int[removeQueue.size()];
+			for (int i = 0; i < removeQueue.size(); i++) {
+				Player player = removeQueue.get(i);
+				entityIds[i] = player.getEntityId();
+
+				removeViewer(player, true);
+				player.removeViewer(this, false);
+			}
+
+			getClient().sendPacket(new PacketOutDestroyEntities(entityIds));
+		}
 
 		final long endTime = System.nanoTime();
 		if (loadCount > 0 || unloadCount > 0) {
 			LOGGER.info("Updated chunks for " + this.name + " (loaded " + loadCount + ", unloaded " + unloadCount
 					+ ", took " + ((float) (endTime - startTime) / 1000000L) + " ms)");
 		}
-		this.client.sendPacket(packets.toArray(Packet[]::new));
 	}
 
 	public long getPing() {

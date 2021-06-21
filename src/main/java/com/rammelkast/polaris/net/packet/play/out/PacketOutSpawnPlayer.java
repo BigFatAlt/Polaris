@@ -16,23 +16,21 @@
  */
 package com.rammelkast.polaris.net.packet.play.out;
 
-import java.util.Set;
-
 import com.rammelkast.polaris.entity.human.Player;
 import com.rammelkast.polaris.net.packet.Packet;
 import com.rammelkast.polaris.net.packet.PacketWrapper;
 
+import io.netty.buffer.ByteBuf;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
-public final class PacketOutPlayerListItem extends Packet {
+public final class PacketOutSpawnPlayer extends Packet {
 
-	private final int action;
-	private final Set<Player> players;
+	private final Player player;
 
 	@Override
 	public byte getId() {
-		return 0x38;
+		return 0x0C;
 	}
 
 	@Override
@@ -42,21 +40,26 @@ public final class PacketOutPlayerListItem extends Packet {
 
 	@Override
 	public void write(final PacketWrapper wrapper) {
-		wrapper.writeVarInt(this.action);
-		wrapper.writeVarInt(this.players.size());
-		this.players.forEach(player -> {
-			if (this.action == 0) {
-				wrapper.writeUUID(player.getUniqueId());
-				wrapper.writeString(player.getName());
-				// TODO gameprofile
-				wrapper.writeVarInt(0);
-				wrapper.writeVarInt(player.getGameMode().getValue());
-				wrapper.writeVarInt((int) player.getPing());
-				wrapper.getBuffer().writeBoolean(false);
-			} else if (this.action == 4) {
-				wrapper.writeUUID(player.getUniqueId());
-			}
-		});
+		final ByteBuf buffer = wrapper.getBuffer();
+		wrapper.writeVarInt(this.player.getEntityId());
+		wrapper.writeUUID(this.player.getUniqueId());
+		buffer.writeInt((int) (this.player.getLocation().getX() * 32));
+		buffer.writeInt((int) (this.player.getLocation().getY() * 32));
+		buffer.writeInt((int) (this.player.getLocation().getZ() * 32));
+		buffer.writeByte(getYawAngle());
+		buffer.writeByte(getPitchAngle());
+		buffer.writeShort(0); // TODO item in hand
+		this.player.getMetadata().write(wrapper);
+	}
+	
+	private byte getYawAngle() {
+		final float f = this.player.getLocation().getYaw() % 360;
+        return (byte) ((f / 360f) * 256f);
+	}
+	
+	private byte getPitchAngle() {
+		final float f = this.player.getLocation().getPitch() % 360f;
+        return (byte) ((f / 360f) * 256f);
 	}
 
 }

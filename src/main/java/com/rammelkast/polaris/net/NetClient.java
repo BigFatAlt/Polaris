@@ -112,7 +112,7 @@ public final class NetClient extends ChannelInboundHandlerAdapter {
 		this.uniqueId = uniqueId;
 		LOGGER.info("{} connected from {} with UUID {}", username, this.getAddress(), uniqueId);
 		
-		if (player != null) {
+		if (this.player != null) {
 			throw new IllegalStateException("Cannot login twice");
 		}
 
@@ -123,7 +123,7 @@ public final class NetClient extends ChannelInboundHandlerAdapter {
 	}
 	
 	public String getAddress() {
-		return ((InetSocketAddress) channel.channel().remoteAddress()).getAddress().toString();
+		return ((InetSocketAddress) this.channel.channel().remoteAddress()).getAddress().toString();
 	}
 	
 	public void flush() {
@@ -143,7 +143,7 @@ public final class NetClient extends ChannelInboundHandlerAdapter {
 		}
 		
 		synchronized (this.packetQueue) {
-			for (Packet packet : packets) {
+			for (final Packet packet : packets) {
 				this.packetQueue.offer(packet);
 			}
 		}

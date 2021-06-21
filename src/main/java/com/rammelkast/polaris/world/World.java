@@ -20,6 +20,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 import com.rammelkast.polaris.entity.human.Player;
+import com.rammelkast.polaris.net.packet.Packet;
 import com.rammelkast.polaris.net.packet.play.out.PacketOutChatMessage;
 import com.rammelkast.polaris.util.Location;
 
@@ -99,7 +100,13 @@ public final class World {
 		this.players.clear();
 	}
 	
-	public void broadcast(final BaseComponent... message) {
+	public void broadcastPacket(final Packet... packets) {
+		this.players.forEach(player -> {
+			player.getClient().sendPacket(packets);
+		});
+	}
+	
+	public void broadcastMessage(final BaseComponent... message) {
 		this.players.forEach(player -> {
 			player.getClient().sendPacket(new PacketOutChatMessage(ComponentSerializer
 					.toString(message), ChatMessageType.CHAT));

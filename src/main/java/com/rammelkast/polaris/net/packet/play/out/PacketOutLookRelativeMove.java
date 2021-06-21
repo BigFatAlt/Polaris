@@ -16,23 +16,24 @@
  */
 package com.rammelkast.polaris.net.packet.play.out;
 
-import java.util.Set;
-
-import com.rammelkast.polaris.entity.human.Player;
 import com.rammelkast.polaris.net.packet.Packet;
 import com.rammelkast.polaris.net.packet.PacketWrapper;
 
+import io.netty.buffer.ByteBuf;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
-public final class PacketOutPlayerListItem extends Packet {
+public final class PacketOutLookRelativeMove extends Packet {
 
-	private final int action;
-	private final Set<Player> players;
+	private final int entityId;
+	private final byte deltaX, deltaY, deltaZ;
+	private final float yaw;
+	private final float pitch;
+	private final boolean onGround;
 
 	@Override
 	public byte getId() {
-		return 0x38;
+		return 0x17;
 	}
 
 	@Override
@@ -42,21 +43,23 @@ public final class PacketOutPlayerListItem extends Packet {
 
 	@Override
 	public void write(final PacketWrapper wrapper) {
-		wrapper.writeVarInt(this.action);
-		wrapper.writeVarInt(this.players.size());
-		this.players.forEach(player -> {
-			if (this.action == 0) {
-				wrapper.writeUUID(player.getUniqueId());
-				wrapper.writeString(player.getName());
-				// TODO gameprofile
-				wrapper.writeVarInt(0);
-				wrapper.writeVarInt(player.getGameMode().getValue());
-				wrapper.writeVarInt((int) player.getPing());
-				wrapper.getBuffer().writeBoolean(false);
-			} else if (this.action == 4) {
-				wrapper.writeUUID(player.getUniqueId());
-			}
-		});
+		final ByteBuf buffer = wrapper.getBuffer();
+		wrapper.writeVarInt(this.entityId);
+		buffer.writeByte(this.deltaX);
+		buffer.writeByte(this.deltaY);
+		buffer.writeByte(this.deltaZ);
+		buffer.writeByte(getYawAngle());
+		buffer.writeByte(getPitchAngle());
+		buffer.writeBoolean(this.onGround);
 	}
-
+	
+	private byte getYawAngle() {
+		final float f = this.yaw % 360;
+        return (byte) ((f / 360f) * 256f);
+	}
+	
+	private byte getPitchAngle() {
+		final float f = this.pitch % 360f;
+        return (byte) ((f / 360f) * 256f);
+	}
 }

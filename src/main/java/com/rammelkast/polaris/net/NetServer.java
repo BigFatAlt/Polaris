@@ -71,7 +71,7 @@ public final class NetServer extends Thread {
 	@Override
 	public void run() {
 		try {
-            ChannelFuture future = this.bootstrap.bind(port).sync();
+            final ChannelFuture future = this.bootstrap.bind(port).sync();
             if (!future.isSuccess()) {
                 throw new IllegalStateException("Could not bind NetServer to port " + this.port);
             }
