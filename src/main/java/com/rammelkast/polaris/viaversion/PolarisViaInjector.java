@@ -16,10 +16,9 @@
  */
 package com.rammelkast.polaris.viaversion;
 
-import com.google.gson.JsonObject;
 import com.rammelkast.polaris.net.ConnectionBuilder;
-
-import us.myles.ViaVersion.api.platform.ViaInjector;
+import com.viaversion.viaversion.api.platform.ViaInjector;
+import com.viaversion.viaversion.libs.gson.JsonObject;
 
 public final class PolarisViaInjector implements ViaInjector {
 	

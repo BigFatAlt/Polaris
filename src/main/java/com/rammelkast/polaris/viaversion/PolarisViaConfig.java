@@ -16,9 +16,12 @@
  */
 package com.rammelkast.polaris.viaversion;
 
-import it.unimi.dsi.fastutil.ints.IntArraySet;
-import it.unimi.dsi.fastutil.ints.IntSet;
-import us.myles.ViaVersion.api.ViaVersionConfig;
+import com.viaversion.viaversion.api.configuration.ViaVersionConfig;
+import com.viaversion.viaversion.api.minecraft.WorldIdentifiers;
+import com.viaversion.viaversion.api.protocol.version.BlockedProtocolVersions;
+import com.viaversion.viaversion.libs.fastutil.ints.IntArraySet;
+import com.viaversion.viaversion.libs.fastutil.ints.IntSet;
+import com.viaversion.viaversion.libs.gson.JsonElement;
 
 public final class PolarisViaConfig implements ViaVersionConfig {
 	
@@ -172,11 +175,6 @@ public final class PolarisViaConfig implements ViaVersionConfig {
 	}
 
 	@Override
-	public IntSet getBlockedProtocols() {
-		return new IntArraySet();
-	}
-
-	@Override
 	public String getBlockedDisconnectMsg() {
 		return null;
 	}
@@ -279,5 +277,48 @@ public final class PolarisViaConfig implements ViaVersionConfig {
 	@Override
 	public boolean isIgnoreLong1_16ChannelNames() {
 		return false;
+	}
+
+	@Override
+	public boolean isNoDelayShieldBlocking() {
+		return false;
+	}
+
+	@Override
+	public boolean isShowShieldWhenSwordInHand() {
+		return false;
+	}
+
+	@Override
+	public IntSet getBlockedProtocols() {
+		return new IntArraySet();
+	}
+
+	@Override
+	public boolean isForcedUse1_17ResourcePack() {
+		return false;
+	}
+
+	@Override
+	public JsonElement get1_17ResourcePackPrompt() {
+		return null;
+	}
+
+	@Override
+	public boolean isChunkBorderFix() {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public BlockedProtocolVersions blockedProtocolVersions() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public WorldIdentifiers get1_16WorldNamesMap() {
+		// TODO Auto-generated method stub
+		return null;
 	}
 }

@@ -20,30 +20,19 @@ import java.util.SortedSet;
 import java.util.UUID;
 
 import com.rammelkast.polaris.entity.human.Player;
+import com.viaversion.viaversion.api.Via;
+import com.viaversion.viaversion.api.ViaAPI;
+import com.viaversion.viaversion.api.connection.UserConnection;
+import com.viaversion.viaversion.api.legacy.LegacyViaAPI;
+import com.viaversion.viaversion.api.protocol.version.ServerProtocolVersion;
+import com.viaversion.viaversion.legacy.LegacyAPI;
 
 import io.netty.buffer.ByteBuf;
-import us.myles.ViaVersion.api.Via;
-import us.myles.ViaVersion.api.ViaAPI;
-import us.myles.ViaVersion.api.boss.BossBar;
-import us.myles.ViaVersion.api.boss.BossColor;
-import us.myles.ViaVersion.api.boss.BossStyle;
-import us.myles.ViaVersion.api.data.UserConnection;
-import us.myles.ViaVersion.api.protocol.ProtocolRegistry;
 
 public final class PolarisViaAPI implements ViaAPI<Player> {
 
-	@Override
-	public BossBar createBossBar(String arg0, BossColor arg1, BossStyle arg2) {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public BossBar createBossBar(String arg0, float arg1, BossColor arg2, BossStyle arg3) {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
+	private final LegacyAPI<Player> legacy = new LegacyAPI<>();
+	
 	@Override
 	public int getPlayerVersion(Player player) {
 		return getPlayerVersion(player.getUniqueId());
@@ -54,12 +43,12 @@ public final class PolarisViaAPI implements ViaAPI<Player> {
 		if (!isInjected(uuid)) {
 			return 47;
 		}
-		return Via.getManager().getConnection(uuid).getProtocolInfo().getProtocolVersion();
+		return Via.getManager().getConnectionManager().getConnectedClient(uuid).getProtocolInfo().getProtocolVersion();
 	}
 
 	@Override
 	public SortedSet<Integer> getSupportedVersions() {
-		return ProtocolRegistry.getSupportedVersions();
+		return getFullSupportedVersions();
 	}
 
 	@Override
@@ -69,7 +58,7 @@ public final class PolarisViaAPI implements ViaAPI<Player> {
 
 	@Override
 	public boolean isInjected(final UUID uuid) {
-		return Via.getManager().isClientConnected(uuid);
+		return Via.getManager().getConnectionManager().isClientConnected(uuid);
 	}
 
 	@Override
@@ -79,11 +68,32 @@ public final class PolarisViaAPI implements ViaAPI<Player> {
 
 	@Override
 	public void sendRawPacket(final UUID uuid, final ByteBuf buffer) {
-		if (!isInjected(uuid))
+		if (!isInjected(uuid)) {
 			throw new IllegalArgumentException("This player is not controlled by ViaVersion!");
-		final UserConnection user = Via.getManager().getConnection(uuid);
+		}
+		final UserConnection user = Via.getManager().getConnectionManager().getConnectedClient(uuid);
 		user.sendRawPacket(buffer);
 		throw new UnsupportedOperationException();
+	}
+
+	@Override
+	public ServerProtocolVersion getServerVersion() {
+		return Via.getManager().getProtocolManager().getServerProtocolVersion();
+	}
+
+	@Override
+	public UserConnection getConnection(final UUID uuid) {
+		return Via.getManager().getConnectionManager().getConnectedClient(uuid);
+	}
+
+	@Override
+	public SortedSet<Integer> getFullSupportedVersions() {
+		return Via.getManager().getProtocolManager().getSupportedVersions();
+	}
+
+	@Override
+	public LegacyViaAPI<Player> legacyAPI() {
+		return this.legacy;
 	}
 
 }

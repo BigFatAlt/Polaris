@@ -20,7 +20,7 @@ import java.util.Objects;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
-import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import com.viaversion.viaversion.libs.fastutil.ints.Int2ObjectMap;
 
 /**
  * An Object that represents a task that is scheduled for execution on the

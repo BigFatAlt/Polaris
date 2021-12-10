@@ -22,28 +22,25 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import com.google.gson.JsonObject;
 import com.rammelkast.polaris.Polaris;
 import com.rammelkast.polaris.entity.human.Player;
 import com.rammelkast.polaris.task.Task;
-
-import us.myles.ViaVersion.ViaManager;
-import us.myles.ViaVersion.api.Via;
-import us.myles.ViaVersion.api.ViaAPI;
-import us.myles.ViaVersion.api.ViaVersionConfig;
-import us.myles.ViaVersion.api.command.ViaCommandSender;
-import us.myles.ViaVersion.api.configuration.ConfigurationProvider;
-import us.myles.ViaVersion.api.platform.TaskId;
-import us.myles.ViaVersion.api.platform.ViaConnectionManager;
-import us.myles.ViaVersion.api.platform.ViaPlatform;
+import com.rammelkast.polaris.task.ViaTask;
+import com.viaversion.viaversion.ViaManagerImpl;
+import com.viaversion.viaversion.api.Via;
+import com.viaversion.viaversion.api.ViaAPI;
+import com.viaversion.viaversion.api.command.ViaCommandSender;
+import com.viaversion.viaversion.api.configuration.ConfigurationProvider;
+import com.viaversion.viaversion.api.configuration.ViaVersionConfig;
+import com.viaversion.viaversion.api.platform.PlatformTask;
+import com.viaversion.viaversion.api.platform.ViaPlatform;
+import com.viaversion.viaversion.libs.gson.JsonObject;
 
 public final class PolarisViaPlatform implements ViaPlatform<Player> {
 
 	private final PolarisViaAPI api;
 	private final PolarisViaConfig config;
 	private final Logger logger;
-	
-	private final ViaConnectionManager connectionManager = new ViaConnectionManager();
 
 	public PolarisViaPlatform() {
 		this.api = new PolarisViaAPI();
@@ -55,14 +52,8 @@ public final class PolarisViaPlatform implements ViaPlatform<Player> {
 	}
 
 	public void init() {
-		Via.init(ViaManager.builder().platform(this).loader(new PolarisViaLoader()).injector(new PolarisViaInjector())
+		Via.init(ViaManagerImpl.builder().platform(this).loader(new PolarisViaLoader()).injector(new PolarisViaInjector())
 				.build());
-		Via.getManager().init();
-	}
-
-	@Override
-	public void cancelTask(final TaskId taskId) {
-		((Task) taskId.getObject()).cancel();
 	}
 
 	@Override
@@ -79,11 +70,6 @@ public final class PolarisViaPlatform implements ViaPlatform<Player> {
 	public ConfigurationProvider getConfigurationProvider() {
 		throw new UnsupportedOperationException();
 	}
-
-    @Override
-    public ViaConnectionManager getConnectionManager() {
-        return this.connectionManager;
-    }
 
 	@Override
 	public File getDataFolder() {
@@ -118,7 +104,7 @@ public final class PolarisViaPlatform implements ViaPlatform<Player> {
 
 	@Override
 	public String getPluginVersion() {
-		return "3.2.2-SNAPSHOT";
+		return "4.0.2-SNAPSHOT";
 	}
 
 	@Override
@@ -143,31 +129,29 @@ public final class PolarisViaPlatform implements ViaPlatform<Player> {
 	}
 
 	@Override
-	public TaskId runAsync(final Runnable task) {
-		throw new UnsupportedOperationException();
-	}
-
-	@Override
-	public TaskId runRepeatingSync(final Runnable task, final Long delay) {
-		// Delay * 20L -> ticks to milliseconds
-		final Task schedule = Polaris.getServer().getSchedulerManager().buildTask(task)
-				.repeat(delay * 20L, TimeUnit.MILLISECONDS).schedule();
-		return () -> schedule;
-	}
-
-	@Override
-	public TaskId runSync(final Runnable task) {
-		final Task schedule = Polaris.getServer().getSchedulerManager().buildTask(task).schedule();
-		return () -> schedule;
-	}
-
-	@Override
-	public TaskId runSync(final Runnable task, final Long delay) {
-		throw new UnsupportedOperationException();
-	}
-
-	@Override
 	public void sendMessage(final UUID uniqueId, final String message) {
+		throw new UnsupportedOperationException();
+	}
+	
+	@Override
+	public PlatformTask<Task> runSync(final Runnable runnable) {
+		return runSync(runnable, 0L);
+	}
+
+	@Override
+	public PlatformTask<Task> runSync(final Runnable runnable, final long ticks) {
+		return new ViaTask(
+				Polaris.getServer().getSchedulerManager().buildTask(runnable).delay(ticks * 50L, TimeUnit.MILLISECONDS).schedule());
+	}
+
+	@Override
+	public PlatformTask<Task> runRepeatingSync(final Runnable runnable, final long ticks) {
+		return new ViaTask(
+				Polaris.getServer().getSchedulerManager().buildTask(runnable).repeat(ticks * 50L, TimeUnit.MILLISECONDS).schedule());
+	}
+
+	@Override
+	public PlatformTask<Task> runAsync(final Runnable runnable) {
 		throw new UnsupportedOperationException();
 	}
 

@@ -18,7 +18,7 @@ package com.rammelkast.polaris.task;
 
 import java.util.concurrent.TimeUnit;
 
-import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import com.viaversion.viaversion.libs.fastutil.ints.Int2ObjectMap;
 
 /**
  * A builder which represents a fluent Object to schedule tasks.

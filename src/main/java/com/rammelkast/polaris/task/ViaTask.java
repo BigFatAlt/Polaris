@@ -14,20 +14,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.rammelkast.polaris.viaversion;
+package com.rammelkast.polaris.task;
 
-import com.viaversion.viaversion.api.platform.ViaPlatformLoader;
+import com.viaversion.viaversion.api.platform.PlatformTask;
 
-public final class PolarisViaLoader implements ViaPlatformLoader {
+public class ViaTask implements PlatformTask<Task> {
+	
+    private final Task task;
 
-	@Override
-	public void load() {
-		
-	}
+    public ViaTask(final Task task) {
+        this.task = task;
+    }
+	
+    @Override
+    public Task getObject() {
+        return this.task;
+    }
 
-	@Override
-	public void unload() {
-		
-	}
-
+    @Override
+    public void cancel() {
+        this.task.cancel();
+    }
 }

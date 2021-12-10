@@ -18,12 +18,13 @@ package com.rammelkast.polaris.viaversion.codec;
 
 import java.util.List;
 
+import com.viaversion.viaversion.api.connection.UserConnection;
+import com.viaversion.viaversion.exception.CancelEncoderException;
+
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.MessageToMessageEncoder;
 import lombok.RequiredArgsConstructor;
-import us.myles.ViaVersion.api.data.UserConnection;
-import us.myles.ViaVersion.exception.CancelEncoderException;
 
 @RequiredArgsConstructor
 public final class ViaEncoder extends MessageToMessageEncoder<ByteBuf> {

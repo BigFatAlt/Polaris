@@ -23,14 +23,15 @@ import com.rammelkast.polaris.net.codec.PacketEncoder;
 import com.rammelkast.polaris.net.codec.PacketFramer;
 import com.rammelkast.polaris.viaversion.codec.ViaDecoder;
 import com.rammelkast.polaris.viaversion.codec.ViaEncoder;
+import com.viaversion.viaversion.api.connection.UserConnection;
+import com.viaversion.viaversion.connection.UserConnectionImpl;
+import com.viaversion.viaversion.protocol.ProtocolPipelineImpl;
 
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.timeout.ReadTimeoutHandler;
 import lombok.RequiredArgsConstructor;
-import us.myles.ViaVersion.api.data.UserConnection;
-import us.myles.ViaVersion.api.protocol.ProtocolPipeline;
 
 @RequiredArgsConstructor
 public final class ConnectionBuilder extends ChannelInitializer<SocketChannel> {
@@ -51,9 +52,9 @@ public final class ConnectionBuilder extends ChannelInitializer<SocketChannel> {
 		final NetClient client = new NetClient();
 		
 		// ViaVersion
-		final UserConnection user = new UserConnection(ch);
+		final UserConnection user = new UserConnectionImpl(ch);
 		{
-			new ProtocolPipeline(user);
+			new ProtocolPipelineImpl(user);
 		}
 		// End ViaVersion
 		
